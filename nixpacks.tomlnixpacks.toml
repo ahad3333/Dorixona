@@ -1,0 +1,24 @@
+# Nixpacks configuration for Railway deployment
+# This tells Railway how to build and run the Go application
+
+[phases.setup]
+# Use Go 1.21 (yoki sizning versiyangiz)
+nixPkgs = ["go_1_21"]
+
+[phases.build]
+# Build commands - navigate to cmd directory and build
+cmds = [
+  "echo '📦 Downloading dependencies...'",
+  "go mod download",
+  "echo '🔨 Building application...'",
+  "cd cmd && go build -ldflags='-w -s' -o ../out main.go",
+  "echo '✅ Build completed successfully!'"
+]
+
+[start]
+# Start command - run the compiled binary
+cmd = "./out"
+
+[variables]
+# Railway will automatically add these, but you can customize
+# PORT = "8080"

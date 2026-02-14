@@ -1,4 +1,42 @@
-.env
+# Binaries
 out
 *.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
 tmp/
+temp/
+
+# Logs
+*.log
+
+# Railway
+.railway/
+
+# Go workspace file
+go.work
