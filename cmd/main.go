@@ -6,8 +6,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	"testuchun/internal/excel"
 
@@ -165,11 +168,48 @@ func main() {
 	db := connectDB()
 	defer db.Close()
 
+	// Healthcheck endpoint (Railway uchun)
+	go func() {
+		http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("OK"))
+		})
+		
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("Pharmacy Bot is running"))
+		})
+		
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = "8080"
+		}
+		
+		fmt.Printf("🌐 Health check server running on :%s\n", port)
+		if err := http.ListenAndServe(":"+port, nil); err != nil {
+			log.Printf("⚠️ Health check server error: %v\n", err)
+		}
+	}()
+
+	// Graceful shutdown
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	
+	go func() {
+		<-c
+		fmt.Println("\n🛑 Bot to'xtatilmoqda...")
+		bot.StopReceivingUpdates()
+		db.Close()
+		fmt.Println("✅ Bot to'xtatildi")
+		os.Exit(0)
+	}()
+
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 	updates := bot.GetUpdatesChan(u)
 
 	fmt.Println("✅ Bot ishga tushdi...")
+	fmt.Printf("🤖 Bot username: @%s\n", bot.Self.UserName)
 	fmt.Printf("👑 Super Admin: %d\n", superAdminID)
 	fmt.Printf("👥 Dorixona Adminlari:\n")
 	for _, aid := range adminIDs {
@@ -881,13 +921,20 @@ func main() {
 }
 
 func connectDB() *sql.DB {
+	// Birinchi DATABASE_URL ni tekshirish (Railway, Fly.io uchun)
 	databaseURL := os.Getenv("DATABASE_URL")
 	
 	if databaseURL != "" {
+		// Railway/Fly.io - to'g'ridan-to'g'ri URL
 		db, err := sql.Open("postgres", databaseURL)
 		if err != nil {
 			log.Fatal("❌ DB ochilmadi:", err)
 		}
+
+		// Connection pool sozlash (Railway uchun optimizatsiya)
+		db.SetMaxOpenConns(25)
+		db.SetMaxIdleConns(5)
+		db.SetConnMaxLifetime(5 * time.Minute)
 
 		if err = db.Ping(); err != nil {
 			log.Fatal("❌ DB ping error:", err)
@@ -897,6 +944,7 @@ func connectDB() *sql.DB {
 		return db
 	}
 	
+	// Local development - alohida parametrlar
 	dsn := "host=" + os.Getenv("DB_HOST") +
 		" port=" + os.Getenv("DB_PORT") +
 		" user=" + os.Getenv("DB_USER") +
